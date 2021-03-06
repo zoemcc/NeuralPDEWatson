@@ -1,0 +1,20 @@
+!Read regularization input
+!Log the auxilliary losses
+!Add parallelism to the experiment runner
+Make branch/commit the code for the PINN changes (regularization, schedule)
+
+Analytical solution
+Stop early?
+
+Generate Movie
+    Create Makie Template, pick render views
+    Animation
+    Record Perspectives from interactive mode
+    Playback perspectives
+Analyze differences
+    Quadrature of deviation from analytical
+    Generate Image of deviation
+    Optimize for maximum deviation
+
+Analyze boundary condition handling
+    Checking losses at asymptotic n counts match as a property test
