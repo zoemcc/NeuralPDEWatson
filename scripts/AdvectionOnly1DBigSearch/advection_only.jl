@@ -18,6 +18,12 @@ using StaticArrays
 using Hyperopt
 using Logging
 
+const C_adv = 2.0
+const C_diff = 0.0
+
+const x_max = 2.0
+const t_max = 1.0
+
 
 @with_kw struct ExperimentParams
     ChainDims::Int64
@@ -152,6 +158,47 @@ function parse_savename_to_experiment(paramstype::DataType, savedname::AbstractS
 end
 
 
+function chain_model(experiment_params::ExperimentParams)
+    dim = 2
+    outputdim = 1
+    circletransform(tx, θ) = [tx[1], cos(π*tx[2]), sin(π*tx[2])]
+
+    # make neural net
+
+    chain_array = []
+    if experiment_params.UseCircleTransform
+        push!(chain_array, circletransform)
+        inputdim = dim + 1
+    else
+        inputdim = dim
+    end
+
+    non_lin_functions = Dict(
+        :gelu => Flux.gelu,
+        :relu => Flux.relu,
+        :sigmoid => Flux.σ,
+    )
+
+    push!(chain_array, FastDense(inputdim, experiment_params.ChainDims, non_lin_functions[experiment_params.ChainNonLin]))
+
+    for i in 1:experiment_params.NumHidLayers - 1
+        push!(chain_array, FastDense(experiment_params.ChainDims, experiment_params.ChainDims, non_lin_functions[experiment_params.ChainNonLin]))
+    end
+
+    push!(chain_array, FastDense(experiment_params.ChainDims, outputdim))
+
+    chain = FastChain(chain_array...)
+
+
+end
+
+function analytical_solution(v::AbstractArray) 
+    t, x = v[1], v[2]
+    cos(2π * ( x - C_adv * t ) / x_max)
+end
+analytical_solution(v::AbstractArray, θ::AbstractArray) = analytical_solution(v)
+analytical_solution_fastchain = FastChain( analytical_solution )
+
 
 function train_advection_model(experiment_params::ExperimentParams, experiment_path::AbstractString; dry_run=true)
 
@@ -161,11 +208,7 @@ function train_advection_model(experiment_params::ExperimentParams, experiment_p
     Dx = Differential(x)
     Dxx = Dx^2
 
-    C_adv = 2.0
-    C_diff = 0.0
 
-    x_max = 2.0
-    t_max = 1.0
 
     # Equations, initial and boundary conditions ###############################
 
@@ -194,6 +237,8 @@ function train_advection_model(experiment_params::ExperimentParams, experiment_p
                 t ∈ IntervalDomain(0.0, t_max),
                 x ∈ IntervalDomain(0.0, x_max)
                 ]
+
+
 
 
     StrategyDict = Dict(
@@ -234,7 +279,6 @@ function train_advection_model(experiment_params::ExperimentParams, experiment_p
     )
 
     push!(chain_array, FastDense(inputdim, experiment_params.ChainDims, non_lin_functions[experiment_params.ChainNonLin]))
-
     for i in 1:experiment_params.NumHidLayers - 1
         push!(chain_array, FastDense(experiment_params.ChainDims, experiment_params.ChainDims, non_lin_functions[experiment_params.ChainNonLin]))
     end
@@ -262,11 +306,15 @@ function train_advection_model(experiment_params::ExperimentParams, experiment_p
     @show experiment_params.L2RegularizationWeight
 
 
-    discretization = PhysicsInformedNN(chain, strategy; iter_count=[1], century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir=experiment_path)
+    discretization = PhysicsInformedNN(chain, strategy, iteration_count=[1]; century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir=experiment_path)
+    #discretization = PhysicsInformedNN(chain, strategy; iter_count=[1], century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir="")
+    #discretization_analytical = PhysicsInformedNN(analytical_solution_fastchain, strategy; iter_count=[1], century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir="")
+    #discretization = PhysicsInformedNN(analytical_solution_fastchain, strategy; iter_count=[1], century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir="")
 
 
     pde_system = PDESystem(eqs, bcs, domains, [t,x], [u])
     prob = discretize(pde_system, discretization)
+    #analytical_prob = discretize(pde_system, discretization_analytical)
 
     saveevery = 10
     loss = Float64[]
@@ -294,8 +342,8 @@ function train_advection_model(experiment_params::ExperimentParams, experiment_p
         )
         println("Beginning to optimize problem:")
         optimization_method = optimization_method_dict[experiment_params.OptimizationMethod]
-        maxiters=5000
-        #maxiters=40
+        #maxiters=5000
+        maxiters=40
         res = GalacticOptim.solve(prob, optimization_method;cb=cb, maxiters=maxiters)
         return res
     else
@@ -306,5 +354,6 @@ function train_advection_model(experiment_params::ExperimentParams, experiment_p
 
 end
 
-main_hyperopt_run(50; do_generate_hyperopt_params=false, dry_run=false)
+
+
 
