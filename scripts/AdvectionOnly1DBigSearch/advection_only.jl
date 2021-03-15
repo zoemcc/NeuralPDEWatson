@@ -307,7 +307,7 @@ function train_advection_model(experiment_params::ExperimentParams, experiment_p
 
 
     discretization = PhysicsInformedNN(chain, strategy, iteration_count=[1]; century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir=experiment_path)
-    #discretization = PhysicsInformedNN(chain, strategy; iter_count=[1], century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir="")
+    ##discretization = PhysicsInformedNN(chain, strategy; iter_count=[1], century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir="")
     #discretization_analytical = PhysicsInformedNN(analytical_solution_fastchain, strategy; iter_count=[1], century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir="")
     #discretization = PhysicsInformedNN(analytical_solution_fastchain, strategy; iter_count=[1], century_pde_loss_schedule=century_pde_loss_schedule, l2_regularization_weight=experiment_params.L2RegularizationWeight, experiment_dir="")
 
