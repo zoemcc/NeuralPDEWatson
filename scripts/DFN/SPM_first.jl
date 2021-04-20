@@ -179,20 +179,23 @@ initθ = discretization.init_params
 initθ = cat(initθ..., dims=1)
 opt = Flux.Optimiser(ClipValue(1e-3), ExpDecay(1, 0.5, 25_000), ADAM(3e-4))
 saveevery = 100
-loss = Float64[]
+loss = zeros(Float64, saveevery)
 
 experiment_path = datadir("stochastic_128_first")
-iteration_count_arr = [0]
+losssavefile = joinpath(experiment_path, "loss.csv")
+rm(losssavefile; force=true)
+iteration_count_arr = [1]
 cb = function (p,l)
     iteration_count = iteration_count_arr[1]
 
+
     println("Current loss is: $l, iteration is: $(iteration_count)")
-    push!(loss, l)
+    loss[((iteration_count - 1) % saveevery) + 1] = l
     if iteration_count % saveevery == 0
         cursavefile = joinpath(experiment_path, string(iteration_count, base=10, pad=5) * ".csv")
         writedlm(cursavefile, p, ",")
-        losssavefile = joinpath(experiment_path, "loss.csv")
-        writedlm(losssavefile, loss, ",")
+        df = DataFrame(loss=loss)
+        CSV.write(losssavefile, df, writeheader=false, append=true)
     end
     iteration_count_arr[1] += 1
     return false
