@@ -160,8 +160,8 @@ nonlin = Flux.gelu
 #out_dim = 3
 #strategy_ = NeuralPDE.QuadratureTraining(;quadrature_alg=HCubatureJL(),abstol=1e-6, reltol=1e-8, maxiters=4000, batch=0)
 #strategy_ = NeuralPDE.QuadratureTraining(;abstol=1e-6, reltol=1e-8, maxiters=2000)
-#strategy_ = NeuralPDE.QuadratureTraining(;)
-strategy_ = NeuralPDE.StochasticTraining(512)
+strategy_ = NeuralPDE.QuadratureTraining(;)
+#strategy_ = NeuralPDE.StochasticTraining(512)
 #in_dims = [3, 3, 3]
 #in_dims = [1, 2, 2]
 in_dims = [1, 2, 2]
@@ -170,10 +170,10 @@ chains_ = [FastChain(FastDense(in_dim,num_dim,nonlin),
                      [FastDense(num_dim,num_dim,nonlin) for i in 1:num_hid]...,
                      FastDense(num_dim,1)) for in_dim in in_dims]
 #adalosspoisson = NeuralPDE.LossGradientsAdaptiveLoss(20; α=0.9f0)
-#adalosspoisson = NeuralPDE.NonAdaptiveLossWeights()
+adalosspoisson = NeuralPDE.NonAdaptiveLossWeights()
 discretization = NeuralPDE.PhysicsInformedNN(chains_,
-                                                strategy_
-                                                )
+                                                strategy_,
+                                                adaptive_loss=adalosspoisson)
 end
 
 #@run sym_prob = NeuralPDE.symbolic_discretize(SPM_pde_system,discretization)
@@ -187,7 +187,7 @@ opt = Flux.Optimiser(ExpDecay(1, 0.75, 25_000), ADAM(3e-4))
 saveevery = 100
 loss = zeros(Float64, saveevery)
 
-experiment_path = datadir("quadrature_fixed_first")
+experiment_path = datadir("stochastic_quadrature_rescaled_in_pde_losses_1e3_1e_4_3e0")
 losssavefile = joinpath(experiment_path, "loss.csv")
 rm(losssavefile; force=true)
 iteration_count_arr = [1]
