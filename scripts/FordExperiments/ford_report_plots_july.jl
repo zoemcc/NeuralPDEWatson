@@ -38,7 +38,7 @@ function myunpickle(filename)
     end
     return r
 end
-output_location = "/home/zobot/.julia/dev/WorkNotes/PaperDrafts/FordEarlyJun2021/"
+output_location = "/home/zobot/.julia/dev/WorkNotes/PaperDrafts/FordJul2021/"
 end
 
 begin
@@ -139,8 +139,9 @@ indices_in_params = map(zip(param_lengths, cumsum(param_lengths))) do (param_len
 end
 
 data_dir = "/home/zobot/.julia/dev/NeuralPDEWatson/data"
-params_file_minimax = joinpath(data_dir, "reduced_c_phi_adam_minimax", "13400.csv")
-params_file_lossgradients = joinpath(data_dir, "reduced_c_phi_adam_lossgradients", "20000.csv")
+params_file_minimax = joinpath(data_dir, "reduced_c_phi_changed_ic_adam_minimax", "12400.csv")
+params_file_lossgradients = joinpath(data_dir, "reduced_c_phi_changed_ic_adam_gradients", "16300.csv")
+params_file_nonadaptive = joinpath(data_dir, "reduced_c_phi_changed_ic_adam_nonadaptive", "16800.csv")
 
 function eval_params(params_file)
     params_read = Array(CSV.read(params_file, DataFrame; header=false))[:,1]
@@ -151,16 +152,16 @@ function eval_params(params_file)
 end
 
 
-minimax_evals, loss_gradients_evals = map(eval_params, [params_file_minimax, params_file_lossgradients])
+minimax_evals, loss_gradients_evals, nonadaptive_evals = map(eval_params, [params_file_minimax, params_file_lossgradients, params_file_nonadaptive])
 
 
 name = "minimax"
 evals = minimax_evals
 function subplot_differences_c_e(evals, name)
-    p1 = contourf(t, x, c_e, title="PyBaMM", xaxis="t", yaxis="x")
-    p2 = contourf(t, x, evals.c_e', title=name, xaxis="t", yaxis="x")
-    error = abs.(evals.c_e' .- c_e)
-    p3 = contourf(t, x, error, title="error", xaxis="t", yaxis="x")
+    p1 = contourf(x, t, c_e', title="PyBaMM", xaxis="x", yaxis="t")
+    p2 = contourf(x, t, evals.c_e, title=name, xaxis="x", yaxis="t")
+    error = abs.(evals.c_e .- c_e')
+    p3 = contourf(x, t, error, title="error", xaxis="x", yaxis="t")
     #l = @layout [a b; c]
     finalplot = plot(p1, p2, p3)
     output_name = name * "_c_e_reduced_c_phi.pdf"
@@ -170,10 +171,10 @@ function subplot_differences_c_e(evals, name)
     finalplot
 end
 function subplot_differences_phi_e(evals, name)
-    p1 = contourf(t, x, phi_e, title="PyBaMM", xaxis="t", yaxis="x")
-    p2 = contourf(t, x, evals.phi_e', title=name, xaxis="t", yaxis="x")
-    error = abs.(evals.phi_e' .- phi_e)
-    p3 = contourf(t, x, error, title="error", xaxis="t", yaxis="x")
+    p1 = contourf(x, t, phi_e', title="PyBaMM", xaxis="x", yaxis="t")
+    p2 = contourf(x, t, evals.phi_e, title=name, xaxis="x", yaxis="t")
+    error = abs.(evals.phi_e .- phi_e')
+    p3 = contourf(x, t, error, title="error", xaxis="x", yaxis="t")
     #l = @layout [a b; c]
     finalplot = plot(p1, p2, p3)
     output_name = name * "_phi_e_reduced_c_phi.pdf"
@@ -183,7 +184,7 @@ function subplot_differences_phi_e(evals, name)
     finalplot
 end
 
-output_plots_c_e = map(subplot_differences_c_e, [minimax_evals, loss_gradients_evals], ["minimax", "loss_gradients"])
-output_plots_phi_e = map(subplot_differences_phi_e, [minimax_evals, loss_gradients_evals], ["minimax", "loss_gradients"])
+output_plots_c_e = map(subplot_differences_c_e, [minimax_evals, loss_gradients_evals, nonadaptive_evals], ["minimax", "loss_gradients", "nonadaptive"])
+output_plots_phi_e = map(subplot_differences_phi_e, [minimax_evals, loss_gradients_evals, nonadaptive_evals], ["minimax", "loss_gradients", "nonadaptive"])
 
 end

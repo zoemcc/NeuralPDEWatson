@@ -203,13 +203,13 @@ begin
 
 
     eqs = [
-    #Dt(Q(t)) ~ 4.27249308415467,
-    #Dt(c_s_n(t, rn, xn)) ~ cache_m2473104508719688576, #only integrate xn
-    #Dt(c_s_p(t, rp, xp)) ~ cache_1772252443521738373, #only integrate xp
-    #Dt(eps_c_e(t, x)) ~ cache_3233777004814567773_concat, # all x
-    #0 ~ cache_m3101737402143440636, # should only be integrated along xn
+    Dt(Q(t)) ~ 4.27249308415467,
+    Dt(c_s_n(t, rn, xn)) ~ cache_m2473104508719688576, #only integrate xn
+    Dt(c_s_p(t, rp, xp)) ~ cache_1772252443521738373, #only integrate xp
+    Dt(eps_c_e(t, x)) ~ cache_3233777004814567773_concat, # all x
+    0 ~ cache_m3101737402143440636, # should only be integrated along xn
     0 ~ cache_2225606857123748425, # should only be integrated along xp
-    #0 ~ cache_5792085376191370772_concat, # should be integrated all x
+    0 ~ cache_5792085376191370772_concat, # should be integrated all x
     ]
     # 'Porosity times concentration' initial condition
 
@@ -226,23 +226,23 @@ begin
     ics_bcs = [
     # initial conditions
     Q(0) ~ 0.0,
-    #c_s_n(0, rn, xn) ~ 0.8000000000000016, # I changed these to have the xn/ xp
-    #c_s_p(0, rp, xp) ~ 0.6000000000000001,
+    c_s_n(0, rn, xn) ~ 0.8000000000000016, # I changed these to have the xn/ xp
+    c_s_p(0, rp, xp) ~ 0.6000000000000001,
     #phi_s_n(0, xn) ~ 0.0,  # phi eqs not helpful, actually hurtful later on to optimize to, since no initial guess needed for this
     #phi_s_p(0, xp) ~ -0.0,
-    #eps_c_e(0, x) ~ cache_3549472971836658861,
+    eps_c_e(0, x) ~ cache_3549472971836658861,
     #phi_e(0, x) ~ -0.0,
     # boundary conditions
-    #Drn(c_s_n(t, left_r_domain, xn)) ~ 0.0,
-    #Drn(c_s_n(t, 1.0, xn)) ~ cache_m4573998876320545433,
-    #Drp(c_s_p(t, left_r_domain, xp)) ~ 0.0,
-    #Drp(c_s_p(t, 1.0, xp)) ~ cache_2508578313141055385,
-    #phi_s_n(t, 0.0) ~ 0.0, 
-    #Dxn(phi_s_n(t, 0.4444444444444445)) ~ 0.0,
-    #Dxp(phi_s_p(t, 0.5555555555555556)) ~ 0.0,
-    #Dxp(phi_s_p(t, 1.0)) ~ -0.059447151651863615,
-    #Dx(phi_e(t, 0.0)) ~ 0.0,
-    #Dx(phi_e(t, 1.0)) ~ 0.0,
+    Drn(c_s_n(t, left_r_domain, xn)) ~ 0.0,
+    Drn(c_s_n(t, 1.0, xn)) ~ cache_m4573998876320545433,
+    Drp(c_s_p(t, left_r_domain, xp)) ~ 0.0,
+    Drp(c_s_p(t, 1.0, xp)) ~ cache_2508578313141055385,
+    phi_s_n(t, 0.0) ~ 0.0, 
+    Dxn(phi_s_n(t, 0.4444444444444445)) ~ 0.0,
+    Dxp(phi_s_p(t, 0.5555555555555556)) ~ 0.0,
+    Dxp(phi_s_p(t, 1.0)) ~ -0.059447151651863615,
+    Dx(phi_e(t, 0.0)) ~ 0.0,
+    Dx(phi_e(t, 1.0)) ~ 0.0,
     ]
 
     t_domain = IntervalDomain(0.000,0.159)
@@ -317,8 +317,9 @@ begin
     exp_name = "dfn_first_testexperimental"
     exp_folder = joinpath(data_dir, exp_name)
     wipe_logs = false
+    add_loss = generate_supervised_loss()[1]
     discretization = NeuralPDE.PhysicsInformedNN(chains_,
-                                                    strategy; adaptive_loss=adaloss, exp_name=exp_name, data_dir=data_dir, wipe=wipe_logs)
+                                                    strategy; adaptive_loss=adaloss, exp_name=exp_name, data_dir=data_dir, wipe=wipe_logs, additional_loss=add_loss)
 end
 end
 begin
@@ -357,11 +358,16 @@ begin
             CSV.write(losssavefile, df, writeheader=false, append=true)
         end
         iteration_count_arr[1] += 1
-        return false
+        if isnan(l)
+            println("Aborting training, NaN found")
+            return true
+        else
+            return false 
+        end
     end
     #prob.f(initθ, [])
-    #prob.f(supervised_res, [])
-    prob_pretrained = remake(prob, u0=supervised_res)
+    #prob_pretrained.f(supervised_res, [])
+    prob_pretrained = remake(prob; u0=supervised_res)
     res = GalacticOptim.solve(prob_pretrained, ADAM(3e-4); cb = cb, maxiters=20_000)
 end
 
@@ -434,7 +440,7 @@ supervisedcb = function (p,l)
     println("Current loss is: $l")
     return false
 end
-supervised_res = GalacticOptim.solve(supervised_opt_prob, ADAM(3e-4); cb = supervisedcb, maxiters=1000)
+supervised_res = GalacticOptim.solve(supervised_opt_prob, ADAM(3e-4); cb = supervisedcb, maxiters=10_000)
 #=
 begin
     pretrained_params_file = joinpath(exp_folder, "20000.csv")
